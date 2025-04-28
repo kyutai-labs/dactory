@@ -16,7 +16,7 @@ jobs:
           version: "0.6.14"
       
       - run: uv run pre-commit run
-      - run: uv run dactory download --help
+      - run: uv run dactory create --help
 
   pip-compatibility:
     runs-on: ubuntu-latest
@@ -30,4 +30,4 @@ jobs:
       - run: |
           source .venv/bin/activate
           pip install -e .
-          dactory download --help
+          dactory create --help
