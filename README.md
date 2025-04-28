@@ -102,7 +102,7 @@ srun --ntasks=100 --cpus-per-task=33  --mem-per-cpu=1G bash -c 'uv run dactory c
 ```
 So 33 processes per task here with 100 tasks (there is 100 groups in a corpus).
 
-### Speeding up the dataset creating with xargs
+### Speeding up the dataset creation with xargs
 
 This requires a beefy machine (> 32 cpus).
 As an example, we start 10 processes with xargs and each process will start 8 workers. So 90 processes total. 90 cpus will be used. This command will download all groups.
