@@ -52,6 +52,35 @@ Check that it's working with
 dactory create --help
 ```
 
+## How it works
+
+Dactory downloads one corpus of CommonCrawl and then performs the following steps:
+1) Remove any warc entry that is not a "response"
+2) Try to decode the warc html with utf-8, and if it fails, ask `resiliparse` to detect the correct encoding.
+3) Extract the text of the html with `resiliparse`.
+4) Guess the language and add a score representing the confidence.
+5) Remove the warc if not in the list of languages selected or if the confidence in the language is too low.
+6) Dedupe the text, on a per-paragraph basis, with a bloom filter, based on warcs seen so far.
+7) Score the text with models trained for each language, filter out warcs with a low score.
+8) Put the warcs in a `.jsonl.zstd`.
+
+Along those steps, if at any point, the text of a warc entry is below a given number of characters (500 by default), the entry is filtered out.
+
+Each entry in the final jsonl has the following keys:
+```
+text: str
+date: str
+url: str
+language: str
+language_score: float
+warc-id: str
+scores: dict[str, float]
+group_idx: int
+warc_file: str
+record_idx: int
+```
+
+For a deeper dive on the dataset creation, feel free to look at the code, the blog post.
 
 ## Usage
 
