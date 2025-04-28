@@ -7,7 +7,6 @@ import typer
 from typer import Argument, Option
 
 import dactory.create
-from dactory.bloom_filter import load_bloom_filter
 from dactory.language_detector import (
     get_all_languages_available,
     load_language_detection_model,
@@ -167,7 +166,7 @@ def parse_args_and_load_models(user_args: CreateArgs) -> dactory.create.LoadedAr
         min_length=user_args.min_length,
         lang_detection_model=lang_detection_model,
         languages=languages,
-        bloom_filter=load_bloom_filter(user_args.bloom_filter),
+        bloom_filter=user_args.bloom_filter,
         min_bloom_threshold=user_args.min_bloom_threshold,
         scoring_models=get_scoring_models(
             user_args.scoring_models, languages, user_args.load_models_early

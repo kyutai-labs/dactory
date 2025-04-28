@@ -13,7 +13,8 @@ from resiliparse.parse.encoding import detect_encoding
 from retry import retry
 from tqdm import tqdm
 
-from dactory import BloomFilter, dedup_document
+from dactory import dedup_document
+from dactory.bloom_filter import load_bloom_filter
 from dactory.scoring import ScoringModels
 from dactory.zstd_writer import zstd_writer
 
@@ -39,7 +40,7 @@ class LoadedArgs:
     min_length: int
     lang_detection_model: FastTextModel | None
     languages: list[str]
-    bloom_filter: BloomFilter | None
+    bloom_filter: str
     min_bloom_threshold: float
     scoring_models: ScoringModels | None
     max_rand_score: float
@@ -167,6 +168,7 @@ def document_generator_group(
 
 
 def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[str]):
+    bloom_filter = load_bloom_filter(args.bloom_filter)
     if args.languages == []:
         raise ValueError("Language list is empty")
 
@@ -212,9 +214,9 @@ def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[
                 work_already_done[document].done = True
                 work_already_done.save()
                 continue
-            if args.bloom_filter is not None:
+            if bloom_filter is not None:
                 document.text = dedup_document(
-                    document.text, args.bloom_filter, args.min_bloom_threshold
+                    document.text, bloom_filter, args.min_bloom_threshold
                 )
                 if len(document.text) < args.min_length:
                     continue
