@@ -4,7 +4,7 @@ The data factory!
 
 ## Installation
 
-The recommended way to use this package is with (uv)[https://docs.astral.sh/uv/]. But it's also compatible with pip.
+The recommended way to use this package is with [uv](https://docs.astral.sh/uv/). But it's also compatible with pip.
 
 In both cases, you need the Cargo (the Rust compiler) to use this package. Install it with:
 
@@ -19,7 +19,7 @@ If you want to install uv, run
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-With uv, you have the choice of just call the tool with uv, or cloning the repository to edit it.
+With uv, you have the choice of just calling the tool with uv, or cloning the repository to edit it.
 
 #### I just want to use the tool
 ```bash
@@ -80,7 +80,7 @@ warc_file: str
 record_idx: int
 ```
 
-For a deeper dive on the dataset creation, feel free to look at the code, the blog post.
+For a deeper dive on the dataset creation, feel free to look at the code or the blog post.
 
 ## Usage
 
