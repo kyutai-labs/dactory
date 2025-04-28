@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.2
+    hooks:
+      - id: ruff
+        args: [--fix, --extend-select, I]
+        files: ^python/
+      - id: ruff-format
+        files: ^python/
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.6.10
+    hooks:
+      - id: uv-lock
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt
+        language: system
+        types: [rust]
+        pass_filenames: false
