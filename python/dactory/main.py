@@ -14,9 +14,13 @@ from dactory.language_detector import (
 from dactory.profiling import profile
 from dactory.scoring import get_scoring_models
 from dactory.warc_groups import get_warc_groups
+from .download_models import HF_PREFIX
+
+
+KYUTAI_HF_REPOSITORY = HF_PREFIX + "kyutai/dactory-models"
 
 DEFAULT_LANGUAGE_DETECTOR_MODEL = (
-    "/lustre/scwpod02/client/kyutai-interns/helium/dactory/lid.176.bin"
+    f"{KYUTAI_HF_REPOSITORY}/lid.176.bin"
 )
 
 # fmt: off
@@ -30,6 +34,36 @@ DEFAULT_LANGUAGES = [
 
 
 app = typer.Typer()
+
+from .document import Document
+import zstandard as zstd
+from io import TextIOWrapper
+import io
+from collections import Counter
+
+@app.command()
+def stats():
+    file_to_load = Path("/lustre/scwpod02/client/kyutai/gabriel/dactory_test/0.jsonl.zstd")
+    documents = []
+    with file_to_load.open("rb") as in_f:
+        with zstd.ZstdDecompressor().stream_reader(in_f) as in_f_decompressed:
+            in_f_decompressed_text = io.TextIOWrapper(in_f_decompressed, encoding="utf-8")
+            for line in in_f_decompressed_text:
+                documents.append(Document.model_validate_json(line))
+
+    print(f"Number of documents: {len(documents)}")
+    # we get the percentage of documents in each language
+    counter = Counter()
+    for doc in documents:
+        counter[doc.language] += 1
+    total = sum(counter.values())
+    for lang, count in counter.items():
+        print(f"{lang}: {count / total * 100:.2f}%")
+
+
+    
+
+
 
 
 @app.command()
@@ -54,6 +88,12 @@ class CreateArgs(pydantic.BaseModel):
 
     While the code uses multiprocessing within a group, the whole dataset can be created even faster by using
     xargs or slurm to run multiple groups in parallel. Use --group <group-idx> to download only one group.
+
+    Path of files can have two different formats:
+    - hf://org/repo-name/filename for huggingface files
+    - /path/to/file for local files
+
+    You can list all the languages available in the language detection model with `dactory list-languages`.
     """
 
     destination_directory: Annotated[
@@ -66,8 +106,8 @@ class CreateArgs(pydantic.BaseModel):
         "CC-MAIN-2024-51"
     )
     load_models_early: Annotated[
-        bool, Option(help="Load scoring models before downloading, only useful for profiling.")
-    ] = False
+        bool, Option(help="Load scoring models before downloading, disable for faster iteration.")
+    ] = True
     workers: Annotated[
         int,
         Option(
@@ -102,14 +142,14 @@ class CreateArgs(pydantic.BaseModel):
         ),
     ] = ",".join(DEFAULT_LANGUAGES)
     bloom_filter: Annotated[str, Option(help="Path or url of the bloom filter model.")] = (
-        "/lustre/scwpod02/client/kyutai-interns/helium/dactory/bloom_v2.bin"
+        f"{KYUTAI_HF_REPOSITORY}/bloom_v2.bin"
     )
     min_bloom_threshold: Annotated[
         float, Option(help="Keep only paragraphs above the bloom threshold.")
     ] = 0.2
     scoring_models: Annotated[
         str, Option(help="Path or url of the directory containing the scoring models.")
-    ] = "/lustre/scwpod02/client/kyutai-interns/helium/dactory/"
+    ] = f"{KYUTAI_HF_REPOSITORY}/"
     max_rand_score: Annotated[
         float, Option(help="Filter any text that has a score for `rand` above the threshold.")
     ] = 0.9
