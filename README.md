@@ -136,4 +136,98 @@ We recommend installing the pre-commit:
 uv run pre-commit install
 ```
 
+## Arguments
+```
+$ uv run dactory create --help
 
+ Usage: dactory create [OPTIONS] DESTINATION_DIRECTORY
+
+ Downloads the CommonCrawl corpus and filters the documents. If will save the
+ documents in the destination directory in the format <group>.jsonl.zstd.
+ If a file <group>.jsonl.zstd is complete, it will be skipped. The files are
+ compressed with zstd. You can read them with `zstd -cd my_file.zstd`
+ While the code uses multiprocessing within a group, the whole dataset can be
+ created even faster by using xargs or slurm to run multiple groups in parallel.
+ Use --group <group-idx> to download only one group.
+ Path of files can have two different formats: - hf://org/repo-name/filename for
+ huggingface files - /path/to/file for local files
+ You can list all the languages available in the language detection model with
+ `dactory list-languages`.
+
+╭─ Arguments ───────────────────────────────────────────────────────────────────╮
+│ *    destination_directory      PATH  Directory to save the downloaded files. │
+│                                       They will be saved at                   │
+│                                       DESTINATION_DIRECTORY/<group>.jsonl.zs… │
+│                                       [default: None]                         │
+│                                       [required]                              │
+╰───────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ─────────────────────────────────────────────────────────────────────╮
+│ --corpus              -c                         TEXT     The CommonCrawl     │
+│                                                           corpus              │
+│                                                           [default:           │
+│                                                           CC-MAIN-2024-51]    │
+│ --load-models-early       --no-load-models-e…             Load scoring models │
+│                                                           before downloading, │
+│                                                           disable for faster  │
+│                                                           iteration.          │
+│                                                           [default:           │
+│                                                           load-models-early]  │
+│ --workers             -w                         INTEGER  Number of processes │
+│                                                           to download and     │
+│                                                           filter the          │
+│                                                           documents.          │
+│                                                           [default: 8]        │
+│ --groups              -g                         TEXT     The groups to       │
+│                                                           download and filter │
+│                                                           in the corpus.      │
+│                                                           Examples: `ALL`,    │
+│                                                           `28`, `10-50`, or   │
+│                                                           `1,8,13`            │
+│                                                           [default: ALL]      │
+│ --min-length                                     INTEGER  Filter text smaller │
+│                                                           than the number of  │
+│                                                           characters given.   │
+│                                                           Use 0 for no        │
+│                                                           filter.             │
+│                                                           [default: 500]      │
+│ --lang-detection-mo…                             TEXT     Path or url to the  │
+│                                                           language detection  │
+│                                                           model.              │
+│                                                           [default:           │
+│                                                           hf://kyutai/dactor… │
+│ --languages                                      TEXT     A comma delimited   │
+│                                                           list of languages   │
+│                                                           to download.        │
+│                                                           Example: `en,fr`.   │
+│                                                           Use `dactory        │
+│                                                           list-languages` for │
+│                                                           the full list       │
+│                                                           available.          │
+│                                                           [default:           │
+│                                                           bg,cs,da,de,el,en,… │
+│ --bloom-filter                                   TEXT     Path or url of the  │
+│                                                           bloom filter model. │
+│                                                           [default:           │
+│                                                           hf://kyutai/dactor… │
+│ --min-bloom-thresho…                             FLOAT    Keep only           │
+│                                                           paragraphs above    │
+│                                                           the bloom           │
+│                                                           threshold.          │
+│                                                           [default: 0.2]      │
+│ --scoring-models                                 TEXT     Path or url of the  │
+│                                                           directory           │
+│                                                           containing the      │
+│                                                           scoring models.     │
+│                                                           [default:           │
+│                                                           hf://kyutai/dactor… │
+│ --max-rand-score                                 FLOAT    Filter any text     │
+│                                                           that has a score    │
+│                                                           for `rand` above    │
+│                                                           the threshold.      │
+│                                                           [default: 0.9]      │
+│ --quiet               -q                                  Do not show         │
+│                                                           progress bars.      │
+│ --help                                                    Show this message   │
+│                                                           and exit.           │
+╰───────────────────────────────────────────────────────────────────────────────╯
+```
