@@ -20,7 +20,7 @@ from .download_models import HF_PREFIX
 KYUTAI_HF_REPOSITORY = HF_PREFIX + "kyutai/dactory-models"
 
 DEFAULT_LANGUAGE_DETECTOR_MODEL = (
-    f"{KYUTAI_HF_REPOSITORY}/lid.176.bin"
+    f"https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 )
 
 # fmt: off
@@ -91,6 +91,7 @@ class CreateArgs(pydantic.BaseModel):
 
     Path of files can have two different formats:
     - hf://org/repo-name/filename for huggingface files
+    - https://something.com/some/file
     - /path/to/file for local files
 
     You can list all the languages available in the language detection model with `dactory list-languages`.
