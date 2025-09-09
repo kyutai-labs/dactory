@@ -23,7 +23,7 @@ With uv, you have the choice of just calling the tool with uv, or cloning the re
 
 #### I just want to use the tool
 ```bash
-uv tool install -p 3.12 git+ssh://git@github.com/0x53504852/dactory@add_package_management_and_entrypoint
+uv tool install -p 3.12 git+https://github.com/kyutai-labs/dactory
 uvx dactory --help
 ```
 
@@ -31,7 +31,7 @@ uvx dactory --help
 With uv, nothing is required to use the package. Simply run for example:
 
 ```bash
-git clone git@github.com:0x53504852/dactory.git
+git clone https://github.com/kyutai-labs/dactory.git
 cd dactory
 uv run dactory create --help
 ```
