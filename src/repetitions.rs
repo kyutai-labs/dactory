@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use pyo3::prelude::*;
+
+
 fn fnv1a_64(data: &[u8]) -> u64 {
     let mut h = 14695981039346656037u64;
     for b in data {
@@ -17,7 +21,8 @@ fn init_adler_32(data: &[u8], n: usize) -> (u32, u32) {
     (a, b)
 }
 
-fn compute_repetitions_rolling(text: &String, n: usize) -> u32 {
+#[pyfunction]
+pub fn compute_repetitions_rolling(text: &str, n: usize) -> u32 {
     let mut n_repetitions = 0;
     let text = text.as_bytes();
     let mut ngrams = vec![0 as u32; 4 * text.len()];
