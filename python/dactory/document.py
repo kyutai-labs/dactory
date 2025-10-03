@@ -14,7 +14,7 @@ class Document(BaseModel):
     group_idx: int
     warc_file: str
     record_idx: int
-    repetitions: int | None
+    repetitions: float | None
 
     class Config:
         validate_by_name = True
