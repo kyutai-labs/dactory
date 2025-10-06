@@ -6,6 +6,7 @@ from huggingface_hub import hf_hub_download
 CACHE_DIRECTORY = Path.home() / ".cache" / "dactory"
 HF_PREFIX = "hf://"
 
+
 def download_if_necessary(path_or_url: str) -> Path:
     if path_or_url.startswith(HF_PREFIX):
         path_or_url = path_or_url.removeprefix(HF_PREFIX)
