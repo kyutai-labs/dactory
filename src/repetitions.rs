@@ -76,6 +76,20 @@ pub fn compute_repetitions_rolling(text: &str, n: usize) -> f32 {
     n_repetitions as f32 / text.len() as f32
 }
 
+#[pyfunction]
+pub fn compute_long_words(text: &str, min_length: usize) -> f32 {
+    if text.len() == 0 {
+        return 0.0;
+    }
+    let mut n_long_words = 0;
+    for word in text.split_whitespace() {
+        if word.len() >= min_length {
+            n_long_words += word.len();
+        }
+    }
+    n_long_words as f32 / text.len() as f32
+}
+
 fn compute_repetitions(text: &String, n: usize) -> u32 {
     let mut n_repetitions = 0;
     let mut ngrams = HashMap::<&[u8], u32>::new();

@@ -10,6 +10,7 @@ mod repetitions;
 fn dactory(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(entry::dedup_document, m)?)?;
     m.add_function(wrap_pyfunction!(repetitions::compute_repetitions_rolling, m)?)?;
+    m.add_function(wrap_pyfunction!(repetitions::compute_long_words, m)?)?;
     m.add_class::<bloom::BloomFilter>()?;
     m.add_class::<entry::FastTextPyWrapper>()?;
     Ok(())
