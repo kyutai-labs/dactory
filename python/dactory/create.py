@@ -229,6 +229,7 @@ def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[
                 scores = args.scoring_models.get_doc_scores(document.text, document.language)
                 if scores["rand"] > args.max_rand_score:
                     continue
+                document.scores = {k: round(v, 3) for k, v in scores.items()}
 
             progress_bar_bytes.update(len(document.text))
             work_already_done[document.warc_file].last_record_seen = document.record_idx
