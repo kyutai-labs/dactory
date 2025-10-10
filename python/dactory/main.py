@@ -1,9 +1,12 @@
+import io
+from collections import Counter
 from pathlib import Path
 from typing import Annotated
 
 import fasttext
 import pydantic
 import typer
+import zstandard as zstd
 from typer import Argument, Option
 
 import dactory.create
@@ -14,13 +17,14 @@ from dactory.language_detector import (
 from dactory.profiling import profile
 from dactory.scoring import get_scoring_models
 from dactory.warc_groups import get_warc_groups
-from .download_models import HF_PREFIX
 
+from .document import Document
+from .download_models import HF_PREFIX
 
 KYUTAI_HF_REPOSITORY = HF_PREFIX + "kyutai/dactory-models"
 
 DEFAULT_LANGUAGE_DETECTOR_MODEL = (
-    f"https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
+    "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 )
 
 # fmt: off
@@ -35,11 +39,6 @@ DEFAULT_LANGUAGES = [
 
 app = typer.Typer()
 
-from .document import Document
-import zstandard as zstd
-from io import TextIOWrapper
-import io
-from collections import Counter
 
 @app.command()
 def stats():
@@ -59,11 +58,6 @@ def stats():
     total = sum(counter.values())
     for lang, count in counter.items():
         print(f"{lang}: {count / total * 100:.2f}%")
-
-
-    
-
-
 
 
 @app.command()
@@ -107,7 +101,8 @@ class CreateArgs(pydantic.BaseModel):
         "CC-MAIN-2024-51"
     )
     load_models_early: Annotated[
-        bool, Option(help="Load scoring models before downloading, disable for faster iteration.")
+        bool,
+        Option(help="Load scoring models before downloading, disable for faster iteration."),
     ] = True
     workers: Annotated[
         int,

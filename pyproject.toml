@@ -1,4 +1,3 @@
-
 [project]
 name = "dactory"
 description = "The data factory"
@@ -28,6 +27,11 @@ classifiers = [
 ]
 dynamic = ["version"]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
+
 [project.scripts]
 dactory = "dactory.main:main"
 
@@ -54,3 +58,6 @@ line-length = 95
 
 [tool.ruff.format]
 skip-magic-trailing-comma = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -13,7 +13,7 @@ from resiliparse.parse.encoding import detect_encoding
 from retry import retry
 from tqdm import tqdm
 
-from dactory import dedup_document
+from dactory import compute_long_words, compute_repetitions_rolling, dedup_document
 from dactory.bloom_filter import load_bloom_filter
 from dactory.scoring import ScoringModels
 from dactory.zstd_writer import zstd_writer
@@ -81,6 +81,8 @@ def get_record_dict(
         group_idx=group_idx,
         warc_file=warc_file,
         record_idx=record_idx,
+        repetitions=None,  # will be filled later
+        long_words=None,  # will be filled later
     )
 
 
@@ -220,11 +222,14 @@ def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[
                 )
                 if len(document.text) < args.min_length:
                     continue
+            document.repetitions = compute_repetitions_rolling(document.text, 20)
+            document.long_words = compute_long_words(document.text, min_length=15)
 
             if args.scoring_models is not None:
                 scores = args.scoring_models.get_doc_scores(document.text, document.language)
                 if scores["rand"] > args.max_rand_score:
                     continue
+                document.scores = {k: round(v, 3) for k, v in scores.items()}
 
             progress_bar_bytes.update(len(document.text))
             work_already_done[document.warc_file].last_record_seen = document.record_idx

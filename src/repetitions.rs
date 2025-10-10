@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use pyo3::prelude::*;
+
+
 fn fnv1a_64(data: &[u8]) -> u64 {
     let mut h = 14695981039346656037u64;
     for b in data {
@@ -17,14 +21,15 @@ fn init_adler_32(data: &[u8], n: usize) -> (u32, u32) {
     (a, b)
 }
 
-fn compute_repetitions_rolling(text: &String, n: usize) -> u32 {
+#[pyfunction]
+pub fn compute_repetitions_rolling(text: &str, n: usize) -> f32 {
     let mut n_repetitions = 0;
     let text = text.as_bytes();
     let mut ngrams = vec![0 as u32; 4 * text.len()];
     //let mut ngrams = vec![0 as u8; 16 * text.len()];
 
     if text.len() <= n {
-	return 0;
+	return 0.0;
     }
     
     //let (mut a, mut b) = init_adler_32(&text, n);
@@ -68,7 +73,21 @@ fn compute_repetitions_rolling(text: &String, n: usize) -> u32 {
 	    ngrams[p] = h32;
 	}
     }
-    n_repetitions
+    n_repetitions as f32 / text.len() as f32
+}
+
+#[pyfunction]
+pub fn compute_long_words(text: &str, min_length: usize) -> f32 {
+    if text.len() == 0 {
+        return 0.0;
+    }
+    let mut n_long_words = 0;
+    for word in text.split_whitespace() {
+        if word.len() >= min_length {
+            n_long_words += word.len();
+        }
+    }
+    n_long_words as f32 / text.len() as f32
 }
 
 fn compute_repetitions(text: &String, n: usize) -> u32 {
