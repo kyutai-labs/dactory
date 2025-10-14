@@ -35,6 +35,7 @@ class WarcResults:
     success: bool
     processed_records: int
     failed_records: int
+    error_msg: str | None = None
 
     @property
     def total_records(self) -> int:
@@ -139,7 +140,7 @@ def document_generator(
             processed_records=processed_records,
             failed_records=failed_records,
         )
-    except Exception:
+    except Exception as e:
         # Either an error occured whiling getting the WARC URL or during the streaming
         # This URL won't be mark as done yet and will be retry on next run starting from last_record_seen
         yield WarcResults(
@@ -147,6 +148,7 @@ def document_generator(
             success=False,
             processed_records=processed_records,
             failed_records=failed_records,
+            error_msg=str(e),
         )
 
 
@@ -209,7 +211,9 @@ def document_generator_group(
             if not result.success:
                 failed_warc_files += 1
                 if not args.quiet:
-                    tqdm.write(f"Failed to download WARC: {result.warc_url}")
+                    tqdm.write(
+                        f"Failed to download WARC: {result.warc_url}, error: {result.error_msg}"
+                    )
             progress_bar.update()
 
             # Log summary stats every 10 files or at the end
