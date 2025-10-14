@@ -33,9 +33,12 @@ class UnwantedWarcRecord(Exception):
 class WarcResults:
     warc_url: str
     success: bool
-    total_records: int
     processed_records: int
     failed_records: int
+
+    @property
+    def total_records(self) -> int:
+        return self.processed_records + self.failed_records
 
 
 @dataclass
@@ -108,24 +111,18 @@ def document_generator(
     args: LoadedArgs, warc_url: str, group_idx: int, work_already_done: GroupProgress
 ) -> Iterator[Document | WarcResults]:
     previous_work = work_already_done[warc_url]
-    total_records = 0
     failed_records = 0
     processed_records = 0
 
     if previous_work.done:
         yield WarcResults(
-            warc_url=warc_url,
-            success=True,
-            total_records=0,
-            processed_records=0,
-            failed_records=0,
+            warc_url=warc_url, success=True, processed_records=0, failed_records=0
         )
         return
 
     try:
         response = get_response(warc_url)
         for record_idx, record in enumerate(ArchiveIterator(response.raw)):
-            total_records += 1
             if record_idx <= previous_work.last_record_seen:
                 processed_records += 1
                 continue
@@ -139,7 +136,6 @@ def document_generator(
         yield WarcResults(
             warc_url=warc_url,
             success=True,
-            total_records=total_records,
             processed_records=processed_records,
             failed_records=failed_records,
         )
@@ -149,7 +145,6 @@ def document_generator(
         yield WarcResults(
             warc_url=warc_url,
             success=False,
-            total_records=total_records,
             processed_records=processed_records,
             failed_records=failed_records,
         )
