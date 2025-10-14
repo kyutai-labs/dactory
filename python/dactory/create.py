@@ -8,6 +8,7 @@ from typing import Iterator
 import requests
 from fasttext.FastText import _FastText as FastTextModel
 from fastwarc.warc import ArchiveIterator, WarcRecord
+from requests.exceptions import RequestException
 from resiliparse.extract.html2text import extract_plain_text
 from resiliparse.parse.encoding import detect_encoding
 from retry import retry
@@ -26,6 +27,19 @@ NO_MORE_INPUT = "NO_MORE_INPUT"
 
 class UnwantedWarcRecord(Exception):
     pass
+
+
+@dataclass
+class WarcResults:
+    warc_url: str
+    success: bool
+    processed_records: int
+    failed_records: int
+    error_msg: str | None = None
+
+    @property
+    def total_records(self) -> int:
+        return self.processed_records + self.failed_records
 
 
 @dataclass
@@ -86,28 +100,56 @@ def get_record_dict(
     )
 
 
-@retry(requests.exceptions.RequestException, tries=3, delay=5)
+@retry(RequestException, tries=3, delay=5)
 def get_response(warc_url: str) -> requests.Response:
-    response = requests.get(warc_url, stream=True)
+    # connect timeout: 30s, read timeout: 60s
+    response = requests.get(warc_url, stream=True, timeout=(30, 60))
     response.raise_for_status()
     return response
 
 
 def document_generator(
     args: LoadedArgs, warc_url: str, group_idx: int, work_already_done: GroupProgress
-) -> Iterator[Document]:
+) -> Iterator[Document | WarcResults]:
     previous_work = work_already_done[warc_url]
-    if previous_work.done:
-        return
-    response = get_response(warc_url)
+    failed_records = 0
+    processed_records = 0
 
-    for record_idx, record in enumerate(ArchiveIterator(response.raw)):
-        if record_idx <= previous_work.last_record_seen:
-            continue
-        try:
-            yield get_record_dict(args, record, group_idx, warc_url, record_idx)
-        except UnwantedWarcRecord:
-            continue
+    if previous_work.done:
+        yield WarcResults(
+            warc_url=warc_url, success=True, processed_records=0, failed_records=0
+        )
+        return
+
+    try:
+        response = get_response(warc_url)
+        for record_idx, record in enumerate(ArchiveIterator(response.raw)):
+            if record_idx <= previous_work.last_record_seen:
+                processed_records += 1
+                continue
+            try:
+                yield get_record_dict(args, record, group_idx, warc_url, record_idx)
+                processed_records += 1
+            except UnwantedWarcRecord:
+                failed_records += 1
+                continue
+
+        yield WarcResults(
+            warc_url=warc_url,
+            success=True,
+            processed_records=processed_records,
+            failed_records=failed_records,
+        )
+    except Exception as e:
+        # Either an error occured whiling getting the WARC URL or during the streaming
+        # This URL won't be mark as done yet and will be retry on next run starting from last_record_seen
+        yield WarcResults(
+            warc_url=warc_url,
+            success=False,
+            processed_records=processed_records,
+            failed_records=failed_records,
+            error_msg=str(e),
+        )
 
 
 def document_generator_queue(
@@ -120,18 +162,24 @@ def document_generator_queue(
     time.sleep(random.uniform(0, 10))
     for warc_path in iter(input_queue.get, NO_MORE_INPUT):
         warc_url = f"https://data.commoncrawl.org/{warc_path}"
-        for doc in document_generator(args, warc_url, group_idx, work_already_done):
-            results_queue.put(doc)
-        results_queue.put(warc_url)
+        for result in document_generator(args, warc_url, group_idx, work_already_done):
+            results_queue.put(result)
 
 
 def document_generator_group(
     args: LoadedArgs, warc_paths: list[str], group_idx: int, work_already_done: GroupProgress
-) -> Iterator[Document | str]:
+) -> Iterator[Document | WarcResults]:
     # Since we mutate it in another function, to be sure
     work_already_done = work_already_done.copy()
     input_queue = multiprocessing.Queue()
     results_queue = multiprocessing.SimpleQueue()
+
+    # Tracking stats
+    total_warc_files = len(warc_paths)
+    failed_warc_files = 0
+    total_records_seen = 0
+    total_records_processed = 0
+    total_records_failed = 0
 
     processes = []
     for _ in range(args.workers):
@@ -144,7 +192,7 @@ def document_generator_group(
 
     for warc_path in warc_paths:
         input_queue.put(warc_path)
-    for i in range(args.workers):
+    for _ in range(args.workers):
         input_queue.put(NO_MORE_INPUT)
 
     progress_bar = tqdm(
@@ -155,13 +203,39 @@ def document_generator_group(
         disable=args.quiet,
     )
     while True:
-        doc = results_queue.get()
-        if isinstance(doc, str):
-            # A warc has been done
+        result = results_queue.get()
+        if isinstance(result, WarcResults):
+            total_records_seen += result.total_records
+            total_records_processed += result.processed_records
+            total_records_failed += result.failed_records
+            if not result.success:
+                failed_warc_files += 1
+                if not args.quiet:
+                    tqdm.write(
+                        f"Failed to download WARC: {result.warc_url}, error: {result.error_msg}"
+                    )
             progress_bar.update()
+
+            # Log summary stats every 10 files or at the end
+            if not args.quiet and (
+                progress_bar.n % 10 == 0 or progress_bar.n == len(warc_paths)
+            ):
+                failed_records_pct = (
+                    (total_records_failed / total_records_seen * 100)
+                    if total_records_seen > 0
+                    else 0
+                )
+                failed_warc_pct = failed_warc_files / total_warc_files * 100
+                tqdm.write(
+                    f"WARC progress: {progress_bar.n}/{total_warc_files} files "
+                    f"({failed_warc_files} failed, {failed_warc_pct:.1f}%) | "
+                    f"Records: {total_records_processed} processed, "
+                    f"{total_records_failed} failed ({failed_records_pct:.1f}%)"
+                )
+
             if progress_bar.n == len(warc_paths):
                 break
-        yield doc
+        yield result
 
     for process in processes:
         process.join()
@@ -211,9 +285,9 @@ def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[
         for document in document_generator_group(
             args, warc_paths, group_idx, work_already_done
         ):
-            if isinstance(document, str):
-                # This is a warc path, we finished it. Let's write that to avoid redownloading it.
-                work_already_done[document].done = True
+            if isinstance(document, WarcResults):
+                # This is a WARC completion result, mark it as done if successful
+                work_already_done[document.warc_url].done = document.success
                 work_already_done.save()
                 continue
             if bloom_filter is not None:
