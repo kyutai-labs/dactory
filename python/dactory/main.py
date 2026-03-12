@@ -15,7 +15,7 @@ from dactory.language_detector import (
     load_language_detection_model,
 )
 from dactory.profiling import profile
-from dactory.scoring import get_scoring_models
+from dactory.scoring import get_quality_classifier, get_scoring_models
 from dactory.warc_groups import get_warc_groups
 
 from .document import Document
@@ -149,6 +149,23 @@ class CreateArgs(pydantic.BaseModel):
     max_rand_score: Annotated[
         float, Option(help="Filter any text that has a score for `rand` above the threshold.")
     ] = 0.9
+    # V1: Gopher-style heuristic filters
+    enable_gopher_filters: Annotated[
+        bool, Option(help="Enable Gopher-style heuristic filters.")
+    ] = False
+    # V2: MinHash document-level dedup
+    enable_minhash_dedup: Annotated[
+        bool, Option(help="Enable MinHash document-level deduplication.")
+    ] = False
+    minhash_threshold: Annotated[float, Option(help="MinHash LSH similarity threshold.")] = 0.8
+    minhash_num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 128
+    # V3: DCLM quality classifier
+    quality_classifier: Annotated[
+        str, Option(help="Path/URL to DCLM fastText quality model, or 'none'.")
+    ] = "none"
+    max_dclm_low_score: Annotated[
+        float, Option(help="Filter docs with dclm_low score above this threshold.")
+    ] = 0.5
     quiet: Annotated[bool, Option("--quiet", "-q", help="Do not show progress bars.")] = False
 
     def __init__(self, **cli_args) -> None:
@@ -208,6 +225,12 @@ def parse_args_and_load_models(user_args: CreateArgs) -> dactory.create.LoadedAr
             user_args.scoring_models, languages, user_args.load_models_early
         ),
         max_rand_score=user_args.max_rand_score,
+        enable_gopher_filters=user_args.enable_gopher_filters,
+        enable_minhash_dedup=user_args.enable_minhash_dedup,
+        minhash_threshold=user_args.minhash_threshold,
+        minhash_num_perm=user_args.minhash_num_perm,
+        quality_classifier=get_quality_classifier(user_args.quality_classifier),
+        max_dclm_low_score=user_args.max_dclm_low_score,
         quiet=user_args.quiet,
     )
 

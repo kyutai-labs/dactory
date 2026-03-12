@@ -41,9 +41,27 @@ class ScoringModels:
         return self.models[lang].get_doc_annotations(text)
 
 
+class QualityClassifier:
+    def __init__(self, model_path_or_url: str):
+        path = download_if_necessary(model_path_or_url)
+        if not path.exists():
+            raise FileNotFoundError(f"Quality classifier model not found at {path}")
+        tqdm.write(f"Loading quality classifier model from: {path}")
+        self.model = FastTextPyWrapper.load(str(path))
+
+    def get_quality_score(self, text: str) -> dict[str, float]:
+        return self.model.get_doc_annotations(text)
+
+
 def get_scoring_models(
     path_or_url: str, languages: list[str], load_models_early: bool
 ) -> ScoringModels | None:
     if path_or_url.lower() == "none":
         return None
     return ScoringModels(path_or_url, languages, load_models_early)
+
+
+def get_quality_classifier(path_or_url: str) -> QualityClassifier | None:
+    if path_or_url.lower() == "none":
+        return None
+    return QualityClassifier(path_or_url)

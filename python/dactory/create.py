@@ -16,7 +16,9 @@ from tqdm import tqdm
 
 from dactory import compute_long_words, compute_repetitions_rolling, dedup_document
 from dactory.bloom_filter import load_bloom_filter
-from dactory.scoring import ScoringModels
+from dactory.gopher import GopherConfig, passes_gopher_filters
+from dactory.minhash_dedup import MinHashDeduplicator
+from dactory.scoring import QualityClassifier, ScoringModels
 from dactory.zstd_writer import zstd_writer
 
 from .document import Document
@@ -58,6 +60,12 @@ class LoadedArgs:
     min_bloom_threshold: float
     scoring_models: ScoringModels | None
     max_rand_score: float
+    enable_gopher_filters: bool
+    enable_minhash_dedup: bool
+    minhash_threshold: float
+    minhash_num_perm: int
+    quality_classifier: QualityClassifier | None
+    max_dclm_low_score: float
     quiet: bool
 
 
@@ -245,6 +253,11 @@ def document_generator_group(
 
 def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[str]):
     bloom_filter = load_bloom_filter(args.bloom_filter)
+    minhash_dedup = (
+        MinHashDeduplicator(threshold=args.minhash_threshold, num_perm=args.minhash_num_perm)
+        if args.enable_minhash_dedup
+        else None
+    )
     if args.languages == []:
         raise ValueError("Language list is empty")
 
@@ -296,14 +309,34 @@ def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[
                 )
                 if len(document.text) < args.min_length:
                     continue
+
+            if minhash_dedup is not None and minhash_dedup.is_duplicate(document.text):
+                continue
+
             document.repetitions = compute_repetitions_rolling(document.text, 20)
             document.long_words = compute_long_words(document.text, min_length=15)
+
+            if args.enable_gopher_filters:
+                passes, gopher_metrics = passes_gopher_filters(
+                    document.text, document.language, GopherConfig()
+                )
+                document.gopher_metrics = {k: round(v, 3) for k, v in gopher_metrics.items()}
+                if not passes:
+                    continue
 
             if args.scoring_models is not None:
                 scores = args.scoring_models.get_doc_scores(document.text, document.language)
                 if scores["rand"] > args.max_rand_score:
                     continue
                 document.scores = {k: round(v, 3) for k, v in scores.items()}
+
+            if args.quality_classifier is not None:
+                quality_scores = args.quality_classifier.get_quality_score(document.text)
+                for k, v in quality_scores.items():
+                    document.scores[f"dclm_{k}"] = round(v, 3)
+                dclm_low = document.scores.get("dclm_low", 0.0)
+                if dclm_low > args.max_dclm_low_score:
+                    continue
 
             progress_bar_bytes.update(len(document.text))
             work_already_done[document.warc_file].last_record_seen = document.record_idx
