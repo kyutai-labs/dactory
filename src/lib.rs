@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 
 mod bloom;
+mod c4;
 mod code;
 mod entry;
 mod gopher;
@@ -16,6 +17,7 @@ fn dactory(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(repetitions::compute_long_words, m)?)?;
+    m.add_function(wrap_pyfunction!(c4::compute_c4_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(gopher::compute_gopher_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(minhash::compute_minhash_signature, m)?)?;
     m.add_class::<bloom::BloomFilter>()?;

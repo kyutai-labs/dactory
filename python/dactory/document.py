@@ -17,6 +17,7 @@ class Document(BaseModel):
     repetitions: float | None
     long_words: float | None
     gopher_metrics: dict[str, float] | None = None
+    c4_metrics: dict[str, float] | None = None
 
     class Config:
         validate_by_name = True

@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 from dactory import compute_long_words, compute_repetitions_rolling, dedup_document
 from dactory.bloom_filter import load_bloom_filter
+from dactory.c4 import C4Config, passes_c4_filters
 from dactory.gopher import GopherConfig, passes_gopher_filters
 from dactory.minhash_dedup import MinHashDeduplicator
 from dactory.scoring import QualityClassifier, ScoringModels
@@ -61,6 +62,7 @@ class LoadedArgs:
     scoring_models: ScoringModels | None
     max_rand_score: float
     enable_gopher_filters: bool
+    enable_c4_filters: bool
     enable_minhash_dedup: bool
     minhash_threshold: float
     minhash_num_perm: int
@@ -315,6 +317,12 @@ def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[
 
             document.repetitions = compute_repetitions_rolling(document.text, 20)
             document.long_words = compute_long_words(document.text, min_length=15)
+
+            if args.enable_c4_filters:
+                passes, c4_metrics = passes_c4_filters(document.text, C4Config())
+                document.c4_metrics = {k: round(v, 3) for k, v in c4_metrics.items()}
+                if not passes:
+                    continue
 
             if args.enable_gopher_filters:
                 passes, gopher_metrics = passes_gopher_filters(

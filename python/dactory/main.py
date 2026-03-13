@@ -149,17 +149,17 @@ class CreateArgs(pydantic.BaseModel):
     max_rand_score: Annotated[
         float, Option(help="Filter any text that has a score for `rand` above the threshold.")
     ] = 0.9
-    # V1: Gopher-style heuristic filters
     enable_gopher_filters: Annotated[
         bool, Option(help="Enable Gopher-style heuristic filters.")
     ] = False
-    # V2: MinHash document-level dedup
+    enable_c4_filters: Annotated[bool, Option(help="Enable C4-inspired content filters.")] = (
+        False
+    )
     enable_minhash_dedup: Annotated[
         bool, Option(help="Enable MinHash document-level deduplication.")
     ] = False
     minhash_threshold: Annotated[float, Option(help="MinHash LSH similarity threshold.")] = 0.8
     minhash_num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 128
-    # V3: DCLM quality classifier
     quality_classifier: Annotated[
         str, Option(help="Path/URL to DCLM fastText quality model, or 'none'.")
     ] = "none"
@@ -226,6 +226,7 @@ def parse_args_and_load_models(user_args: CreateArgs) -> dactory.create.LoadedAr
         ),
         max_rand_score=user_args.max_rand_score,
         enable_gopher_filters=user_args.enable_gopher_filters,
+        enable_c4_filters=user_args.enable_c4_filters,
         enable_minhash_dedup=user_args.enable_minhash_dedup,
         minhash_threshold=user_args.minhash_threshold,
         minhash_num_perm=user_args.minhash_num_perm,
