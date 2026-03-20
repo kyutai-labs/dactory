@@ -4,7 +4,7 @@ from dactory import compute_minhash_signature
 
 
 class MinHashDeduplicator:
-    def __init__(self, threshold: float = 0.8, num_perm: int = 128, ngram_size: int = 5):
+    def __init__(self, threshold: float = 0.75, num_perm: int = 112, ngram_size: int = 5):
         self.threshold = threshold
         self.num_perm = num_perm
         self.ngram_size = ngram_size

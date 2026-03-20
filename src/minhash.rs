@@ -14,8 +14,8 @@ fn fnv1a(data: &[u8], seed: u64) -> u64 {
 
 #[pyfunction]
 pub fn compute_minhash_signature(text: &str, num_perm: usize, ngram_size: usize) -> Vec<u64> {
-    let bytes = text.as_bytes();
-    if bytes.len() < ngram_size {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    if words.len() < ngram_size {
         return vec![u64::MAX; num_perm];
     }
 
@@ -28,9 +28,11 @@ pub fn compute_minhash_signature(text: &str, num_perm: usize, ngram_size: usize)
 
     let mut mins = vec![u64::MAX; num_perm];
 
-    for window in bytes.windows(ngram_size) {
+    for window in words.windows(ngram_size) {
+        let ngram = window.join(" ");
+        let ngram_bytes = ngram.as_bytes();
         for (i, seed) in seeds.iter().enumerate() {
-            let h = fnv1a(window, *seed);
+            let h = fnv1a(ngram_bytes, *seed);
             if h < mins[i] {
                 mins[i] = h;
             }

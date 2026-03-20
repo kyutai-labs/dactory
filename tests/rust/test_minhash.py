@@ -13,8 +13,8 @@ class TestComputeMinHashSignature:
         assert sig1 == sig2
 
     def test_different_texts_different_signatures(self):
-        sig1 = compute_minhash_signature("completely different text one", 8, 5)
-        sig2 = compute_minhash_signature("another unrelated text two", 8, 5)
+        sig1 = compute_minhash_signature("completely different text one with more words here now", 8, 5)
+        sig2 = compute_minhash_signature("another unrelated text two that has enough words inside", 8, 5)
         assert sig1 != sig2
 
     def test_similar_texts_similar_signatures(self):
