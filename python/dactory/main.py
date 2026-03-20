@@ -15,7 +15,7 @@ from dactory.language_detector import (
     load_language_detection_model,
 )
 from dactory.profiling import profile
-from dactory.scoring import get_quality_classifier, get_scoring_models
+from dactory.scoring import get_edu_classifier, get_quality_classifier, get_scoring_models
 from dactory.warc_groups import get_warc_groups
 
 from .document import Document
@@ -38,6 +38,105 @@ DEFAULT_LANGUAGES = [
 
 
 app = typer.Typer()
+
+
+@app.command("compute-sigs")
+def compute_sigs(
+    input_dir: Annotated[
+        Path, Argument(help="Directory containing .jsonl or .jsonl.zstd files.")
+    ],
+    sigs_dir: Annotated[Path, Argument(help="Directory to write signature .npy files.")],
+    num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 112,
+    shard: Annotated[
+        int | None, Option(help="Process only this shard index (for Slurm array jobs).")
+    ] = None,
+    workers: Annotated[int, Option("--workers", "-w", help="Number of processes.")] = 4,
+):
+    """Pre-compute MinHash signatures. Use --shard with SLURM_ARRAY_TASK_ID for parallel jobs."""
+    from dactory.dedup import compute_signatures
+
+    compute_signatures(input_dir, sigs_dir, num_perm=num_perm, shard=shard, workers=workers)
+
+
+@app.command()
+def dedup(
+    input_dir: Annotated[
+        Path, Argument(help="Directory containing .jsonl.zstd files from `dactory create`.")
+    ],
+    output_dir: Annotated[Path, Argument(help="Directory to write deduplicated files.")],
+    threshold: Annotated[float, Option(help="MinHash LSH similarity threshold.")] = 0.75,
+    num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 112,
+    workers: Annotated[
+        int,
+        Option(
+            "--workers", "-w", help="Number of processes for parallel signature computation."
+        ),
+    ] = 4,
+    signatures: Annotated[
+        Path | None, Option(help="Directory of pre-computed signatures (from compute-sigs).")
+    ] = None,
+):
+    """Deduplicate documents across all groups using MinHash LSH."""
+    from dactory.dedup import dedup_snapshot
+
+    dedup_snapshot(
+        input_dir,
+        output_dir,
+        threshold=threshold,
+        num_perm=num_perm,
+        workers=workers,
+        signatures_dir=signatures,
+    )
+
+
+@app.command("dedup-info")
+def dedup_info(
+    threshold: Annotated[float, Option(help="MinHash LSH similarity threshold.")] = 0.75,
+    num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 112,
+):
+    """Print LSH band configuration for a given threshold."""
+    from datasketch import MinHashLSH
+
+    lsh = MinHashLSH(threshold=threshold, num_perm=num_perm)
+    print(f"Threshold: {threshold}, Num perm: {num_perm}")
+    print(f"Bands: {lsh.b}, Rows per band: {lsh.r}")
+    print(f"Slurm array: --array=0-{lsh.b - 1}")
+
+
+@app.command("dedup-bands")
+def dedup_bands(
+    sigs_dir: Annotated[Path, Argument(help="Directory containing .sigs.npy files.")],
+    dupes_dir: Annotated[Path, Argument(help="Directory to write per-band duplicate files.")],
+    band: Annotated[int, Option(help="Band index to process (use with SLURM_ARRAY_TASK_ID).")],
+    threshold: Annotated[float, Option(help="MinHash LSH similarity threshold.")] = 0.75,
+    num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 112,
+):
+    """Find duplicates for a single LSH band. Use --band with SLURM_ARRAY_TASK_ID for parallel jobs."""
+    from dactory.dedup import find_band_duplicates
+
+    find_band_duplicates(
+        sigs_dir, dupes_dir, band=band, threshold=threshold, num_perm=num_perm
+    )
+
+
+@app.command("dedup-filter")
+def dedup_filter(
+    input_dir: Annotated[Path, Argument(help="Directory containing .jsonl.zstd files.")],
+    output_dir: Annotated[Path, Argument(help="Directory to write deduplicated files.")],
+    dupes_dir: Annotated[
+        Path, Argument(help="Directory containing per-band .dupes.npy files.")
+    ],
+    sigs_dir: Annotated[
+        Path | None, Option(help="Directory of .sigs.npy files (required with --shard).")
+    ] = None,
+    shard: Annotated[
+        int | None, Option(help="Process only this shard (for Slurm array jobs).")
+    ] = None,
+):
+    """Filter documents using pre-computed per-band duplicate sets."""
+    from dactory.dedup import filter_duplicates
+
+    filter_duplicates(input_dir, output_dir, dupes_dir, sigs_dir=sigs_dir, shard=shard)
 
 
 @app.command()
@@ -158,13 +257,18 @@ class CreateArgs(pydantic.BaseModel):
     enable_minhash_dedup: Annotated[
         bool, Option(help="Enable MinHash document-level deduplication.")
     ] = False
-    minhash_threshold: Annotated[float, Option(help="MinHash LSH similarity threshold.")] = 0.8
-    minhash_num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 128
+    minhash_threshold: Annotated[float, Option(help="MinHash LSH similarity threshold.")] = (
+        0.75
+    )
+    minhash_num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 112
     quality_classifier: Annotated[
         str, Option(help="Path/URL to DCLM fastText quality model, or 'none'.")
     ] = "none"
-    max_dclm_low_score: Annotated[
-        float, Option(help="Filter docs with dclm_low score above this threshold.")
+    edu_classifier: Annotated[
+        str, Option(help="Path/URL to edu fastText quality model, or 'none'.")
+    ] = "none"
+    min_quality_score: Annotated[
+        float, Option(help="Filter docs with quality score below this threshold.")
     ] = 0.5
     quiet: Annotated[bool, Option("--quiet", "-q", help="Do not show progress bars.")] = False
 
@@ -231,7 +335,8 @@ def parse_args_and_load_models(user_args: CreateArgs) -> dactory.create.LoadedAr
         minhash_threshold=user_args.minhash_threshold,
         minhash_num_perm=user_args.minhash_num_perm,
         quality_classifier=get_quality_classifier(user_args.quality_classifier),
-        max_dclm_low_score=user_args.max_dclm_low_score,
+        min_quality_score=user_args.min_quality_score,
+        edu_classifier=get_edu_classifier(user_args.edu_classifier),
         quiet=user_args.quiet,
     )
 

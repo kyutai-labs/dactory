@@ -67,7 +67,8 @@ class LoadedArgs:
     minhash_threshold: float
     minhash_num_perm: int
     quality_classifier: QualityClassifier | None
-    max_dclm_low_score: float
+    min_quality_score: float
+    edu_classifier: QualityClassifier | None
     quiet: bool
 
 
@@ -340,11 +341,14 @@ def download_warcs_for_group(args: LoadedArgs, group_idx: int, warc_paths: list[
 
             if args.quality_classifier is not None:
                 quality_scores = args.quality_classifier.get_quality_score(document.text)
-                for k, v in quality_scores.items():
-                    document.scores[f"dclm_{k}"] = round(v, 3)
-                dclm_low = document.scores.get("dclm_low", 0.0)
-                if dclm_low > args.max_dclm_low_score:
+                quality_high = quality_scores.get("HIGH", 0.0)
+                document.scores["quality"] = round(quality_high, 3)
+                if quality_high < args.min_quality_score:
                     continue
+
+            if args.edu_classifier is not None:
+                edu_scores = args.edu_classifier.get_quality_score(document.text)
+                document.scores["edu"] = round(edu_scores.get("edu_high", 0.0), 3)
 
             progress_bar_bytes.update(len(document.text))
             work_already_done[document.warc_file].last_record_seen = document.record_idx

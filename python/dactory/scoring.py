@@ -50,7 +50,10 @@ class QualityClassifier:
         self.model = FastTextPyWrapper.load(str(path))
 
     def get_quality_score(self, text: str) -> dict[str, float]:
-        return self.model.get_doc_annotations(text)
+        # Normalize to match fasttext training format: single line, collapsed whitespace
+        clean = text.replace("\n", " ").replace("\r", " ")
+        clean = " ".join(clean.split())
+        return self.model.get_doc_annotations(clean)
 
 
 def get_scoring_models(
@@ -62,6 +65,12 @@ def get_scoring_models(
 
 
 def get_quality_classifier(path_or_url: str) -> QualityClassifier | None:
+    if path_or_url.lower() == "none":
+        return None
+    return QualityClassifier(path_or_url)
+
+
+def get_edu_classifier(path_or_url: str) -> QualityClassifier | None:
     if path_or_url.lower() == "none":
         return None
     return QualityClassifier(path_or_url)
