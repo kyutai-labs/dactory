@@ -81,3 +81,21 @@ class TestComputeGopherMetrics:
         metrics = compute_gopher_metrics(text, "xx")
         # Unknown language defaults to passing
         assert metrics["has_stop_words"] == 1.0
+
+    def test_new_line_ratio_low(self):
+        # Long lines with few newlines → low ratio
+        text = "This is a long sentence with many words in it.\nAnother long sentence with many words here too."
+        metrics = compute_gopher_metrics(text, "en")
+        # 1 newline / 19 words = 0.053
+        assert metrics["new_line_ratio"] < 0.1
+
+    def test_new_line_ratio_high(self):
+        # Many short lines → high ratio (list-like)
+        text = "item\nitem\nitem\nitem\nitem\nitem"
+        metrics = compute_gopher_metrics(text, "en")
+        # 5 newlines / 6 words = 0.833
+        assert metrics["new_line_ratio"] > 0.5
+
+    def test_new_line_ratio_empty(self):
+        metrics = compute_gopher_metrics("", "en")
+        assert metrics["new_line_ratio"] == 0.0

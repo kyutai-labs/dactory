@@ -297,10 +297,28 @@ pub fn compute_gopher_metrics(text: &str, language: &str) -> HashMap<String, f32
         1.0
     };
 
+    // Short line ratio (FineWeb: lines with <= 30 chars)
+    let short_lines = lines.iter().filter(|l| l.len() <= 30).count();
+    let short_line_ratio = if line_count > 0 {
+        short_lines as f32 / line_count as f32
+    } else {
+        0.0
+    };
+
+    // New line ratio (FineWeb: newlines / words, catches list-heavy documents)
+    let new_line_count = text.as_bytes().iter().filter(|&&b| b == b'\n').count();
+    let new_line_ratio = if word_count > 0 {
+        new_line_count as f32 / word_count as f32
+    } else {
+        0.0
+    };
+
     // Duplicate sentences: split on sentence boundaries (.!?) followed by whitespace
     let frac_duplicate_sentences = compute_frac_duplicate(text, SplitMode::Sentence);
     let frac_duplicate_paragraphs = compute_frac_duplicate(text, SplitMode::Paragraph);
+    let frac_duplicate_lines = compute_frac_duplicate(text, SplitMode::Line);
 
+    metrics.insert("new_line_ratio".to_string(), new_line_ratio);
     metrics.insert("mean_word_length".to_string(), mean_word_length);
     metrics.insert("frac_words_with_alpha".to_string(), frac_words_with_alpha);
     metrics.insert(
@@ -321,6 +339,8 @@ pub fn compute_gopher_metrics(text: &str, language: &str) -> HashMap<String, f32
         "frac_duplicate_paragraphs".to_string(),
         frac_duplicate_paragraphs,
     );
+    metrics.insert("frac_duplicate_lines".to_string(), frac_duplicate_lines);
+    metrics.insert("short_line_ratio".to_string(), short_line_ratio);
 
     metrics
 }
@@ -328,6 +348,7 @@ pub fn compute_gopher_metrics(text: &str, language: &str) -> HashMap<String, f32
 enum SplitMode {
     Sentence,
     Paragraph,
+    Line,
 }
 
 fn compute_frac_duplicate(text: &str, mode: SplitMode) -> f32 {
@@ -335,6 +356,11 @@ fn compute_frac_duplicate(text: &str, mode: SplitMode) -> f32 {
         SplitMode::Sentence => split_sentences(text),
         SplitMode::Paragraph => text
             .split("\n\n")
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect(),
+        SplitMode::Line => text
+            .lines()
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .collect(),
