@@ -58,36 +58,6 @@ def compute_sigs(
     compute_signatures(input_dir, sigs_dir, num_perm=num_perm, shard=shard, workers=workers)
 
 
-@app.command()
-def dedup(
-    input_dir: Annotated[
-        Path, Argument(help="Directory containing .jsonl.zstd files from `dactory create`.")
-    ],
-    output_dir: Annotated[Path, Argument(help="Directory to write deduplicated files.")],
-    threshold: Annotated[float, Option(help="MinHash LSH similarity threshold.")] = 0.75,
-    num_perm: Annotated[int, Option(help="Number of MinHash permutations.")] = 112,
-    workers: Annotated[
-        int,
-        Option(
-            "--workers", "-w", help="Number of processes for parallel signature computation."
-        ),
-    ] = 4,
-    signatures: Annotated[
-        Path | None, Option(help="Directory of pre-computed signatures (from compute-sigs).")
-    ] = None,
-):
-    """Deduplicate documents across all groups using MinHash LSH."""
-    from dactory.dedup import dedup_snapshot
-
-    dedup_snapshot(
-        input_dir,
-        output_dir,
-        threshold=threshold,
-        num_perm=num_perm,
-        workers=workers,
-        signatures_dir=signatures,
-    )
-
 
 @app.command("dedup-info")
 def dedup_info(
