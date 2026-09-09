@@ -45,6 +45,7 @@ python-source = "python"
 features = ["pyo3/extension-module"]
 
 [tool.uv]
+exclude-newer = "7 days"
 cache-keys = [
     { file = "src/**/*.rs" }, 
     { file = "Cargo.toml" }, 
